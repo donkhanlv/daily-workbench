@@ -1,0 +1,41 @@
+name: Build Windows EXE
+
+# 云端自动构建 Windows 桌面 .exe —— 本机无需安装 Rust。
+# 用法：把本仓库推送到 GitHub，在 Actions 标签页手动运行 "Build Windows EXE"，
+#       或在 push 到 main/master 时自动触发；构建完成后从 Artifacts 下载 exe。
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Rust toolchain
+        shell: pwsh
+        run: |
+          if (!(Get-Command cargo -ErrorAction SilentlyContinue)) {
+            Invoke-WebRequest https://win.rustup.rs/x86_64 -OutFile $env:TEMP\rustup-init.exe
+            & $env:TEMP\rustup-init.exe -y
+          }
+          echo "$env:USERPROFILE\.cargo\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+
+      - name: Install frontend deps
+        run: npm install
+
+      - name: Build Tauri (Windows)
+        run: npm run build
+
+      - name: Upload bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-workbench-windows
+          path: src-tauri/target/release/bundle/**/*
+          if-no-files-found: error
